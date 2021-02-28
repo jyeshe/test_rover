@@ -21,18 +21,21 @@ Assume that the square directly North from (x, y) is (x, y+1).
 
 * TestRover.Application: Elixir supervised Aplication
 
+* TestRover.LazyInitializer: Agent that acts like a Rover accepting commands
 * TestRover.Rover: Agent that acts like a Rover accepting commands
 
-* TestRover.Control.Controller: Sends commands to the Rovers 
-* TestRover.Control.InputSetup: Maps commands to Rovers 
+* TestRover.Control.RoverController: Sends validated commands to the Rovers 
 
 * TestRover.Commands.Batch: Batch of validated commands
 * TestRover.Commands.Command: Single command
 
+* TestRover.InvalidHeaderException: Raised on invalid grid
+* TestRover.InvalidPositionException: Raised on invalid position line
+* TestRover.InvalidCommandEncodingException: Raised on invalid commands line
 * TestRover.InvalidCommandException: Raised on unknown command
 
 ## Installation
 
-After cloning this repo, call `mix run` in its root dir.
+After cloning this repo, call `mix run --no-halt` in its root dir.
 
 

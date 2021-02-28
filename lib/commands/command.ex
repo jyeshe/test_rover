@@ -10,9 +10,9 @@ defmodule TestRover.Commands.Command do
 
   @type t :: %__MODULE__{raw_code: String.t() | nil, name: String.t() | nil}
 
-  @code_move "M"
-  @code_left "L"
-  @code_right "R"
+  @code_move ?M
+  @code_left ?L
+  @code_right ?R
   @names %{
     @code_move => "Move",
     @code_left => "Left",
@@ -31,8 +31,7 @@ defmodule TestRover.Commands.Command do
     end
   end
 
-  @spec domain() :: list(String.t())
-  def domain(), do: [@code_move, @code_left, @code_right]
+  def domain_regex(), do: ~r/MLR/
 
   defimpl String.Chars do
     def to_string(%{raw_code: raw_code, name: name}), do: "#{raw_code}:#{name}"

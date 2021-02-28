@@ -11,21 +11,25 @@ defmodule TestRover.Commands.Batch do
   """
   defstruct command_list: []
 
+  @type t :: %__MODULE__{command_list: list(Command.t())}
+
   alias TestRover.Commands.Command
 
-  @spec new!(raw_code_list :: list(String.t())) :: list(Command.t())
+  @spec new!(raw_code_list :: list(pos_integer)) :: t()
   def new!(raw_code_list) do
-    Enum.map(raw_code_list, &valid_command!/1)
+    %__MODULE__{
+      command_list: Enum.map(raw_code_list, &valid_command!/1)
+    }
   end
 
-  @spec valid_command!(raw_code :: String.t()) :: Command.t()
+  @spec valid_command!(raw_code :: pos_integer) :: Command.t()
   def valid_command!(raw_code) do
     case Command.new(raw_code) do
       {:ok, command} ->
         command
 
       :error ->
-        raise TestRover.InvalidCommandException, invalid_code: raw_code
+        raise TestRover.InvalidCommandException, raw_code: raw_code
     end
   end
 end
