@@ -20,11 +20,14 @@ Assume that the square directly North from (x, y) is (x, y+1).
 ## Modules
 
 * TestRover.Application: Elixir supervised Aplication
+* TestRover.LazyInitializer: Reads input and initializes Rovers and Controller
 
-* TestRover.LazyInitializer: Agent that acts like a Rover accepting commands
 * TestRover.Rover: Agent that acts like a Rover accepting commands
+* TestRover.RoverPosition: Typed position (with direction)
+* TestRover.RoverState: Encapsulates Rover state
 
 * TestRover.Control.RoverController: Sends validated commands to the Rovers 
+* TestRover.Control.RoverFactory: Controls Rover lifecycle
 
 * TestRover.Commands.Batch: Batch of validated commands
 * TestRover.Commands.Command: Single command

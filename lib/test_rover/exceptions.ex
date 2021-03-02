@@ -12,11 +12,11 @@ end
 defmodule TestRover.InvalidPositionException do
   defexception [:message, :position]
 
-  def exception([position: position, domain: domain]) do
+  def exception(position: position, domain: domain) do
     %__MODULE__{
       message: """
-      Invalid position: #{inspect position}.
-      Expects two positive integers and a direction in #{inspect domain}
+      Invalid position: #{inspect(position)}.
+      Expects two positive integers and a direction in #{inspect(domain)}
       """,
       position: position
     }
@@ -31,7 +31,7 @@ defmodule TestRover.InvalidCommandEncodingException do
   def exception(commands) do
     %__MODULE__{
       message: """
-      Invalid command line: #{inspect commands}.
+      Invalid command line: #{inspect(commands)}.
       Allowed values: #{inspect(Command.domain_regex())}
       """,
       commands: commands

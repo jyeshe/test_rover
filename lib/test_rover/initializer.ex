@@ -9,7 +9,15 @@ defmodule TestRover.LazyInitializer do
   """
   use GenServer
 
+  alias TestRover.Rover
+  alias TestRover.RoverState
+  alias TestRover.RoverPosition
+  alias TestRover.Control.RoverFactory
+  alias TestRover.Control.RoverController
   alias TestRover.Commands.Batch, as: CommandBatch
+
+  defstruct [:grid_size, :initial_state, :command_batch]
+  alias __MODULE__, as: RoverSetup
 
   @direction_domain ["N", "S", "E", "W"]
 
@@ -21,24 +29,62 @@ defmodule TestRover.LazyInitializer do
     {:ok, %{}}
   end
 
+  def test_load_file(filepath, controller_id, id_offset) do
+    stream_resource(filepath)
+    |> Stream.each(fn %RoverSetup{} = rover_setup ->
+      setup_rover(controller_id, rover_setup, id_offset)
+    end)
+    |> Stream.run()
+  end
+
   def process_file(filepath) do
     GenServer.cast(__MODULE__, {:process_file, filepath})
   end
 
   def handle_cast({:process_file, filepath}, state) do
+    controller_id = RoverController.default_id()
+
     stream_resource(filepath)
-    |> Stream.each(fn {grid_size, position, command_batch} ->
-      IO.inspect grid_size
-      IO.inspect position
-      IO.inspect command_batch
+    |> Stream.each(fn %RoverSetup{} = rover_setup ->
+
+      setup_rover(controller_id, rover_setup)
+
+      RoverController.async_run_rover(controller_id, rover_setup.initial_state.id, rover_setup.command_batch)
     end)
     |> Stream.run()
+
+    RoverController.get_execution_sequence(controller_id)
+    |> Enum.each(fn rover_id ->
+        %{x: x, y: y, direction: direction} = Rover.get_position(rover_id)
+        RoverFactory.rover_shutdown(rover_id)
+        IO.puts "#{x} #{y} #{direction}"
+      end)
+
     {:noreply, state}
+  end
+
+  defp setup_rover(controller_id, rover_setup, id_offset \\ 0) do
+    initial_state = get_initial_state(rover_setup.initial_state, id_offset)
+    # create Rover
+    RoverFactory.rover_boot(initial_state)
+    # sets Rover controller parameter(s)
+    RoverController.set_grid_size(controller_id, rover_setup.grid_size)
+  end
+
+  defp get_initial_state(initial_state, id_offset) do
+    # for testability and sharding purposes
+    if Mix.env() != :test do
+      initial_state
+    else
+      %{initial_state | id: initial_state.id + id_offset}
+    end
   end
 
   defp stream_resource(filepath) do
     Stream.resource(
+      # init resource
       fn -> read_header(filepath) end,
+      # iterate resource
       fn {file, grid_size, rover_index} ->
         position_line = IO.read(file, :line)
         commands_line = IO.read(file, :line)
@@ -49,9 +95,17 @@ defmodule TestRover.LazyInitializer do
           position = parse_position(position_line)
           command_batch = parse_commands(commands_line)
 
-          {[{grid_size, position, command_batch}], {file, grid_size, rover_index + 1}}
+          rover_setup = %RoverSetup{
+            grid_size: grid_size,
+            command_batch: command_batch,
+            initial_state: %RoverState{id: rover_index, position: position}
+          }
+
+          # {[element()], next resource state}
+          {[rover_setup], {file, grid_size, rover_index + 1}}
         end
       end,
+      # terminate resource
       fn file -> File.close(file) end
     )
   end
@@ -68,8 +122,7 @@ defmodule TestRover.LazyInitializer do
       [x_str, y_str] = String.split(grid_size_line)
 
       with {x, ""} <- Integer.parse(x_str),
-          {y, ""} <- Integer.parse(y_str)
-      do
+           {y, ""} <- Integer.parse(y_str) do
         {file, {x, y}, 0}
       else
         _error ->
@@ -79,17 +132,17 @@ defmodule TestRover.LazyInitializer do
   end
 
   defp parse_position(position_line) do
-    if not is_binary(position_line)
-        or not String.printable?(position_line)
-        or length(String.split(position_line)) != 3 do
+    if not is_binary(position_line) or
+         not String.printable?(position_line) or
+         length(String.split(position_line)) != 3 do
       raise_position_exception(position_line)
     else
       [x_str, y_str, direction] = String.split(position_line)
+
       with {x, ""} <- Integer.parse(x_str),
-        {y, ""} <- Integer.parse(y_str),
-        true <- direction in @direction_domain
-      do
-        {x, y, direction}
+           {y, ""} <- Integer.parse(y_str),
+           true <- direction in @direction_domain do
+        %RoverPosition{x: x, y: y, direction: direction}
       else
         _error ->
           raise_position_exception(position_line)
@@ -109,22 +162,24 @@ defmodule TestRover.LazyInitializer do
 
   defp raise_header_exception(header_grid_line) do
     # spawn to avoid dyalizer warning
-    spawn fn -> raise TestRover.InvalidHeaderException, header_grid: header_grid_line end
+    spawn(fn -> raise TestRover.InvalidHeaderException, header_grid: header_grid_line end)
     :ok
   end
 
   def raise_position_exception(position_line) do
     # spawn to avoid dyalizer warning
-    spawn fn -> raise TestRover.InvalidPositionException,
-      position: position_line,
-      domain: @direction_domain
-    end
+    spawn(fn ->
+      raise TestRover.InvalidPositionException,
+        position: position_line,
+        domain: @direction_domain
+    end)
+
     :ok
   end
 
   def raise_commands_exception(commands_line) do
     # spawn to avoid dyalizer warning
-    spawn fn -> raise TestRover.InvalidCommandEncodingException, commands: commands_line end
+    spawn(fn -> raise TestRover.InvalidCommandEncodingException, commands: commands_line end)
     :ok
   end
 end
